@@ -142,6 +142,7 @@ document.querySelectorAll('.installer-tab').forEach(tab => {
 
         if (tab.dataset.tab === 'history') loadFindings();
         if (tab.dataset.tab === 'users') loadUsers();
+        if (tab.dataset.tab === 'certificates') { loadCertificates(); prefillInstallerDetails(); }
     });
 });
 
@@ -494,5 +495,223 @@ async function deleteUser(userId) {
     } catch { alert('Connection error'); }
 }
 
+// ---- CERTIFICATES ----
+
+const APPLIANCE_TEMPLATE = `
+<div class="appliance-row" style="border:1px solid #ddd;padding:10px;margin-bottom:10px;border-radius:6px;">
+  <div class="form-row">
+    <div class="form-group"><label>Location</label><input type="text" name="ap_location" placeholder="e.g. Kitchen"></div>
+    <div class="form-group"><label>Appliance Type</label><input type="text" name="ap_type" placeholder="e.g. Combination Boiler"></div>
+    <div class="form-group"><label>Make</label><input type="text" name="ap_make"></div>
+    <div class="form-group"><label>Model</label><input type="text" name="ap_model"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label>Flue Type</label><select name="ap_flue"><option value="">--</option><option>RS</option><option>CF</option><option>OF</option><option>SE</option></select></div>
+    <div class="form-group"><label>Appliance Inspected</label><select name="ap_inspected"><option value="">--</option><option>Y</option><option>N</option></select></div>
+    <div class="form-group"><label>Operating Pressure (mbar)</label><input type="text" name="ap_pressure"></div>
+    <div class="form-group"><label>Heat Input (kWh)</label><input type="text" name="ap_heat"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label>High Comb. Ratio</label><input type="text" name="ap_highRatio" style="width:80px"></div>
+    <div class="form-group"><label>High CO ppm</label><input type="text" name="ap_highCO" style="width:80px"></div>
+    <div class="form-group"><label>High CO2%</label><input type="text" name="ap_highCO2" style="width:80px"></div>
+    <div class="form-group"><label>Low Comb. Ratio</label><input type="text" name="ap_lowRatio" style="width:80px"></div>
+    <div class="form-group"><label>Low CO ppm</label><input type="text" name="ap_lowCO" style="width:80px"></div>
+    <div class="form-group"><label>Low CO2%</label><input type="text" name="ap_lowCO2" style="width:80px"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label>Safety Devices</label><select name="ap_safety"><option value="">--</option><option>Y</option><option>N</option><option>NA</option></select></div>
+    <div class="form-group"><label>Ventilation</label><select name="ap_ventilation"><option value="">--</option><option>Y</option><option>N</option><option>NA</option></select></div>
+    <div class="form-group"><label>Flue Visual</label><select name="ap_flueVisual"><option value="">--</option><option>Y</option><option>N</option><option>NA</option></select></div>
+    <div class="form-group"><label>Flue Performance</label><select name="ap_fluePerf"><option value="">--</option><option>Y</option><option>N</option><option>NA</option></select></div>
+    <div class="form-group"><label>Serviced</label><select name="ap_serviced"><option value="">--</option><option>Y</option><option>N</option><option>NA</option></select></div>
+    <div class="form-group"><label>Safe to Use</label><select name="ap_safeToUse"><option value="">--</option><option>Y</option><option>N</option><option>NA</option><option>ID</option><option>AR</option></select></div>
+  </div>
+  <button type="button" class="btn btn-sm btn-danger remove-appliance-btn" style="margin-top:4px">Remove</button>
+</div>`;
+
+function initApplianceRows() {
+    const container = $('applianceRows');
+    if (!container) return;
+    container.innerHTML = APPLIANCE_TEMPLATE;
+    container.querySelector('.remove-appliance-btn').addEventListener('click', function() {
+        if (container.querySelectorAll('.appliance-row').length > 1) this.closest('.appliance-row').remove();
+    });
+}
+
+const addApplianceBtn = $('addApplianceBtn');
+if (addApplianceBtn) {
+    addApplianceBtn.addEventListener('click', () => {
+        const container = $('applianceRows');
+        if (container.querySelectorAll('.appliance-row').length >= 6) {
+            alert('Maximum 6 appliances per certificate');
+            return;
+        }
+        const div = document.createElement('div');
+        div.innerHTML = APPLIANCE_TEMPLATE;
+        const row = div.firstElementChild;
+        row.querySelector('.remove-appliance-btn').addEventListener('click', function() {
+            row.remove();
+        });
+        container.appendChild(row);
+    });
+}
+
+// Pre-fill installer details from session on cert tab load
+function prefillInstallerDetails() {
+    if ($('ins_engineer') && !$('ins_engineer').value) {
+        $('ins_engineer').value = userName || '';
+    }
+    const today = new Date().toISOString().split('T')[0];
+    if ($('certDate') && !$('certDate').value) $('certDate').value = today;
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    if ($('nextInspection') && !$('nextInspection').value) $('nextInspection').value = nextYear.toISOString().split('T')[0];
+    if ($('issuedBy') && !$('issuedBy').value) $('issuedBy').value = userName || '';
+}
+
+const certForm = $('certForm');
+if (certForm) {
+    certForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        $('certError').style.display = 'none';
+        $('certSuccess').style.display = 'none';
+        const btn = $('issueCertBtn');
+        btn.disabled = true;
+        btn.textContent = 'Generating PDF...';
+
+        try {
+            // Collect appliance rows
+            const applianceRows = document.querySelectorAll('#applianceRows .appliance-row');
+            const appliances = Array.from(applianceRows).map(row => {
+                const f = n => (row.querySelector(`[name="${n}"]`) || {}).value || '';
+                return {
+                    location: f('ap_location'), type: f('ap_type'), make: f('ap_make'), model: f('ap_model'),
+                    flue: f('ap_flue'), inspected: f('ap_inspected'), pressure: f('ap_pressure'), heat: f('ap_heat'),
+                    highRatio: f('ap_highRatio'), highCO: f('ap_highCO'), highCO2: f('ap_highCO2'),
+                    lowRatio: f('ap_lowRatio'), lowCO: f('ap_lowCO'), lowCO2: f('ap_lowCO2'),
+                    safety: f('ap_safety'), ventilation: f('ap_ventilation'), flueVisual: f('ap_flueVisual'),
+                    fluePerf: f('ap_fluePerf'), serviced: f('ap_serviced'), safeToUse: f('ap_safeToUse')
+                };
+            });
+
+            const fv = n => (certForm.querySelector(`[name="${n}"]`) || {}).value || '';
+            const payload = {
+                certType: 'CP12',
+                installer: {
+                    engineer: fv('ins_engineer'), company: fv('ins_company'),
+                    address: fv('ins_address'), address2: fv('ins_address2'),
+                    postcode: fv('ins_postcode'), telephone: fv('ins_telephone'),
+                    gasSafeReg: fv('ins_gasSafeReg'), idCardNo: fv('ins_idCardNo')
+                },
+                jobAddress: {
+                    name: fv('job_name'), address: fv('job_address'), address2: fv('job_address2'),
+                    address3: fv('job_address3'), postcode: fv('job_postcode'), telephone: fv('job_telephone')
+                },
+                customer: {
+                    name: fv('cust_name'), company: fv('cust_company'), address: fv('cust_address'),
+                    address2: fv('cust_address2'), postcode: fv('cust_postcode'),
+                    telephone: fv('cust_telephone'), mobile: fv('cust_mobile')
+                },
+                appliances,
+                defects: [0,1,2,3,4,5].map(i => fv('defect_' + i)).filter(Boolean),
+                checks: {
+                    emergencyControl: fv('chk_emergencyControl'),
+                    gasTightness: fv('chk_gasTightness'),
+                    pipeworkVisual: fv('chk_pipeworkVisual'),
+                    equipotentialBonding: fv('chk_equipotentialBonding'),
+                    waterQuality: fv('chk_waterQuality'),
+                    labelsWarningNotice: fv('chk_labelsWarningNotice'),
+                    coFitted: fv('chk_coFitted'), coTested: fv('chk_coTested'),
+                    smokeFitted: fv('chk_smokeFitted'), smokeTested: fv('chk_smokeTested')
+                },
+                comments: fv('comments'),
+                nextInspection: fv('nextInspection'),
+                date: fv('date'),
+                issuedBy: fv('issuedBy'),
+                receivedBy: fv('receivedBy')
+            };
+
+            const res = await fetch(API + '/api/installer/certificates', {
+                method: 'POST',
+                headers: headers(true),
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || 'Server error ' + res.status);
+            }
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'CP12-certificate.pdf';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+
+            $('certSuccess').style.display = 'flex';
+            setTimeout(() => { $('certSuccess').style.display = 'none'; }, 5000);
+            loadCertificates();
+        } catch (err) {
+            $('certError').textContent = err.message || 'Failed to generate certificate';
+            $('certError').style.display = 'block';
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Issue Certificate & Download PDF';
+    });
+}
+
+async function loadCertificates() {
+    const list = $('certificatesList');
+    if (!list) return;
+    try {
+        const res = await fetch(API + '/api/installer/certificates', { headers: headers() });
+        if (res.status === 401) { clearSession(); return showLogin(); }
+        const data = await res.json();
+        renderCertificates(data.certificates || []);
+    } catch {
+        list.innerHTML = '<p class="empty-state">Could not load certificates.</p>';
+    }
+}
+
+function renderCertificates(certs) {
+    const list = $('certificatesList');
+    if (!list) return;
+    if (certs.length === 0) {
+        list.innerHTML = '<p class="empty-state">No certificates issued yet.</p>';
+        return;
+    }
+    list.innerHTML = certs.slice().reverse().map(c => `
+        <div class="finding-item" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;">
+            <div>
+                <strong>CP12 #${escapeHtml(c.certNo)}</strong>
+                <span style="margin-left:8px;color:#666;font-size:13px">${escapeHtml(c.customerName || '—')}</span>
+                <p style="margin:3px 0 0;font-size:12px;color:#888">${escapeHtml(c.jobAddress || '')} &mdash; ${new Date(c.issuedAt).toLocaleDateString('en-GB')} &mdash; by ${escapeHtml(c.installerId)}</p>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="downloadCertPDF('${c.id}', '${c.certNo}')">Download PDF</button>
+        </div>
+    `).join('');
+}
+
+async function downloadCertPDF(id, certNo) {
+    try {
+        const res = await fetch(API + '/api/installer/certificates/' + id + '/pdf', { headers: headers() });
+        if (!res.ok) { alert('Could not download certificate'); return; }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `CP12-${certNo}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+    } catch { alert('Download failed'); }
+}
+
 // ---- INIT ----
 checkSession();
+initApplianceRows();
