@@ -4,7 +4,8 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(npm install:*)",
       "Bash(node -e \":*)",
-      "Bash(node -c server.js)"
+      "Bash(node -c server.js)",
+      "mcp__c708ae79-d41d-40e0-8c9f-0ad760f2afa3__list_repos"
     ]
   }
 }

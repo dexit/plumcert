@@ -16,6 +16,8 @@ const CONTACT_IMG_DIR = path.join(ROOT, 'images', 'contact');
 const GOOGLE_CREDENTIALS_FILE = path.join(ROOT, 'data', 'google-credentials.json');
 const AI_CONFIG_FILE = path.join(ROOT, 'data', 'ai-config.json');
 const CERTIFICATES_FILE = path.join(ROOT, 'data', 'certificates.json');
+const CUSTOMERS_FILE = path.join(ROOT, 'data', 'customers.json');
+const PROPERTIES_FILE = path.join(ROOT, 'data', 'properties.json');
 
 function getAiApiKey() {
     if (process.env.AI_API_KEY) return process.env.AI_API_KEY;
@@ -40,6 +42,8 @@ if (!fs.existsSync(FINDINGS_FILE)) fs.writeFileSync(FINDINGS_FILE, '[]', 'utf8')
 if (!fs.existsSync(FINDINGS_IMG_DIR)) fs.mkdirSync(FINDINGS_IMG_DIR, { recursive: true });
 if (!fs.existsSync(CONTACT_IMG_DIR)) fs.mkdirSync(CONTACT_IMG_DIR, { recursive: true });
 if (!fs.existsSync(CERTIFICATES_FILE)) fs.writeFileSync(CERTIFICATES_FILE, '[]', 'utf8');
+if (!fs.existsSync(CUSTOMERS_FILE)) fs.writeFileSync(CUSTOMERS_FILE, '[]', 'utf8');
+if (!fs.existsSync(PROPERTIES_FILE)) fs.writeFileSync(PROPERTIES_FILE, '[]', 'utf8');
 
 // Seed super admin on first run
 if (!fs.existsSync(USERS_FILE)) {
@@ -258,6 +262,101 @@ function getNextCertNo() {
         return isNaN(n) ? m : Math.max(m, n);
     }, 0);
     return String(max + 1).padStart(6, '0');
+}
+
+// ---- CUSTOMER / PROPERTY HELPERS ----
+
+function readCustomers() {
+    try { return JSON.parse(fs.readFileSync(CUSTOMERS_FILE, 'utf8')); }
+    catch { return []; }
+}
+function saveCustomers(c) { fs.writeFileSync(CUSTOMERS_FILE, JSON.stringify(c, null, 2), 'utf8'); }
+
+function readProperties() {
+    try { return JSON.parse(fs.readFileSync(PROPERTIES_FILE, 'utf8')); }
+    catch { return []; }
+}
+function saveProperties(p) { fs.writeFileSync(PROPERTIES_FILE, JSON.stringify(p, null, 2), 'utf8'); }
+
+function makeCustomerId() {
+    return 'cust-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+function makePropId() {
+    return 'prop-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// Import existing leads as customers once at startup (idempotent)
+(function importLeadsAsCustomers() {
+    try {
+        const leads = JSON.parse(fs.readFileSync(LEADS_FILE, 'utf8'));
+        const customers = readCustomers();
+        const existingEmails = new Set(customers.map(c => (c.email || '').toLowerCase()));
+        let changed = false;
+        let leadsChanged = false;
+        for (const lead of leads) {
+            if (!lead.email || existingEmails.has(lead.email.toLowerCase())) continue;
+            if (lead.importedAsCustomer) continue;
+            const parts = (lead.fullName || '').trim().split(/\s+/);
+            const firstName = parts[0] || '';
+            const lastName = parts.slice(1).join(' ') || '';
+            const newCustomer = {
+                id: makeCustomerId(),
+                title: '', firstName, lastName,
+                company: '',
+                address: '',
+                postcode: lead.postcode || '',
+                telephone: lead.phone || '',
+                mobile: '',
+                email: lead.email || '',
+                vatNo: '',
+                notes: lead.serviceType ? 'Imported from booking: ' + lead.serviceType : 'Imported from booking',
+                type: 'residential',
+                createdAt: lead.submittedAt || new Date().toISOString(),
+                createdBy: 'system'
+            };
+            customers.push(newCustomer);
+            existingEmails.add(lead.email.toLowerCase());
+            lead.importedAsCustomer = true;
+            leadsChanged = true;
+            changed = true;
+        }
+        if (changed) saveCustomers(customers);
+        if (leadsChanged) fs.writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2), 'utf8');
+    } catch { /* non-fatal */ }
+})();
+
+// ---- PDF SHARED HELPER ----
+
+function pdfThreeColHeader(doc, y, CW, M, BLUE, WHITE, BORDER, colTitles, col1Fields, col2Fields, col3Fields) {
+    const COL = Math.floor(CW / 3);
+    const COL3 = CW - COL * 2;
+    const INFO_H = col1Fields.length * 12 + 12;
+    const colX = [M, M + COL, M + COL * 2];
+    doc.strokeColor(BORDER).lineWidth(0.5)
+       .rect(M, y, CW, INFO_H).stroke()
+       .moveTo(M + COL, y).lineTo(M + COL, y + INFO_H).stroke()
+       .moveTo(M + COL * 2, y).lineTo(M + COL * 2, y + INFO_H).stroke();
+    colTitles.forEach((title, i) => {
+        const w = i === 2 ? COL3 : COL;
+        doc.rect(colX[i], y, w, 12).fill(BLUE);
+        doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(8)
+           .text(title, colX[i] + 3, y + 2, { width: w - 6, lineBreak: false });
+    });
+    const fieldRow = (cx, fy, cw, label, value) => {
+        doc.strokeColor(BORDER).lineWidth(0.3).moveTo(cx, fy).lineTo(cx + cw, fy).stroke();
+        doc.lineWidth(0.5);
+        doc.fillColor('#444').font('Helvetica').fontSize(6)
+           .text(label, cx + 2, fy + 2, { width: 68, lineBreak: false });
+        doc.fillColor('#000').font('Helvetica').fontSize(7)
+           .text(String(value || ''), cx + 70, fy + 1, { width: cw - 73, lineBreak: false });
+    };
+    let ry = y + 12;
+    col1Fields.forEach(([l, v]) => { fieldRow(colX[0], ry, COL, l, v); ry += 12; });
+    ry = y + 12;
+    col2Fields.forEach(([l, v]) => { fieldRow(colX[1], ry, COL, l, v); ry += 12; });
+    ry = y + 12;
+    col3Fields.forEach(([l, v]) => { fieldRow(colX[2], ry, COL3, l, v); ry += 12; });
+    return y + INFO_H;
 }
 
 // ---- CP12 PDF DRAWING ----
