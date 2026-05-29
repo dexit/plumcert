@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { google } = require('googleapis');
+const PDFDocument = require('pdfkit');
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
@@ -14,6 +15,7 @@ const FINDINGS_IMG_DIR = path.join(ROOT, 'images', 'findings');
 const CONTACT_IMG_DIR = path.join(ROOT, 'images', 'contact');
 const GOOGLE_CREDENTIALS_FILE = path.join(ROOT, 'data', 'google-credentials.json');
 const AI_CONFIG_FILE = path.join(ROOT, 'data', 'ai-config.json');
+const CERTIFICATES_FILE = path.join(ROOT, 'data', 'certificates.json');
 
 function getAiApiKey() {
     if (process.env.AI_API_KEY) return process.env.AI_API_KEY;
@@ -37,6 +39,7 @@ if (!fs.existsSync(LEADS_FILE)) fs.writeFileSync(LEADS_FILE, '[]', 'utf8');
 if (!fs.existsSync(FINDINGS_FILE)) fs.writeFileSync(FINDINGS_FILE, '[]', 'utf8');
 if (!fs.existsSync(FINDINGS_IMG_DIR)) fs.mkdirSync(FINDINGS_IMG_DIR, { recursive: true });
 if (!fs.existsSync(CONTACT_IMG_DIR)) fs.mkdirSync(CONTACT_IMG_DIR, { recursive: true });
+if (!fs.existsSync(CERTIFICATES_FILE)) fs.writeFileSync(CERTIFICATES_FILE, '[]', 'utf8');
 
 // Seed super admin on first run
 if (!fs.existsSync(USERS_FILE)) {
@@ -235,6 +238,395 @@ function readFindings() {
 
 function saveFindings(findings) {
     fs.writeFileSync(FINDINGS_FILE, JSON.stringify(findings, null, 2), 'utf8');
+}
+
+// ---- CERTIFICATE HELPERS ----
+
+function readCertificates() {
+    try { return JSON.parse(fs.readFileSync(CERTIFICATES_FILE, 'utf8')); }
+    catch { return []; }
+}
+
+function saveCertificates(certs) {
+    fs.writeFileSync(CERTIFICATES_FILE, JSON.stringify(certs, null, 2), 'utf8');
+}
+
+function getNextCertNo() {
+    const certs = readCertificates();
+    const max = certs.reduce((m, c) => {
+        const n = parseInt(c.certNo, 10);
+        return isNaN(n) ? m : Math.max(m, n);
+    }, 0);
+    return String(max + 1).padStart(6, '0');
+}
+
+// ---- CP12 PDF DRAWING ----
+
+function drawCP12(doc, d) {
+    const PAGE_W = 841.89;
+    const M = 15;
+    const CW = PAGE_W - 2 * M;
+    const BLUE = '#1a3a6b';
+    const LIGHT_BLUE = '#d6e4f7';
+    const YELLOW = '#FFD700';
+    const WHITE = '#ffffff';
+    const BORDER = '#888888';
+
+    const s = v => (v !== undefined && v !== null) ? String(v) : '';
+
+    doc.lineWidth(0.5).strokeColor(BORDER);
+
+    let y = M;
+
+    // === TITLE ROW ===
+    // GAS SAFE yellow box
+    doc.rect(M, y, 52, 30).fillAndStroke(YELLOW, BORDER);
+    doc.fillColor('#000').font('Helvetica-Bold').fontSize(5.5)
+       .text('GAS', M + 1, y + 4, { width: 50, align: 'center' })
+       .text('SAFE', M + 1, y + 12, { width: 50, align: 'center' })
+       .text('REGISTER', M + 1, y + 20, { width: 50, align: 'center' });
+
+    // Main title
+    doc.fillColor('#000').font('Helvetica-Bold').fontSize(14)
+       .text('Homeowner Gas Safety Record', M + 56, y + 8, { width: CW - 175, align: 'center' });
+
+    // Cert No
+    doc.font('Helvetica').fontSize(8).text('Cert. No.', PAGE_W - M - 100, y + 5);
+    doc.rect(PAGE_W - M - 60, y + 2, 60, 14).stroke();
+    doc.fontSize(8).text(s(d.certNo), PAGE_W - M - 58, y + 5, { width: 56, lineBreak: false });
+
+    y += 33;
+
+    // Regulatory subtitle
+    doc.font('Helvetica').fontSize(5.5).fillColor('#444')
+       .text('Safety Inspection and reporting carried out in accordance with the Gas Safety (Installation and Use) Regulations and the Gas Industry Unsafe Situations Procedure.',
+             M, y, { width: CW, align: 'center' });
+
+    y += 10;
+
+    // === THREE-COLUMN INFO SECTION ===
+    const COL = Math.floor(CW / 3);
+    const COL3 = CW - COL * 2;
+    const INFO_H = 112;
+    const R = 12;
+    const colX = [M, M + COL, M + COL * 2];
+
+    doc.rect(M, y, CW, INFO_H).stroke();
+    doc.moveTo(M + COL, y).lineTo(M + COL, y + INFO_H).stroke();
+    doc.moveTo(M + COL * 2, y).lineTo(M + COL * 2, y + INFO_H).stroke();
+
+    const colTitles = ['Company / Installer', 'Job Address', 'Customer / Landlord'];
+    colX.forEach((cx, i) => {
+        const w = i === 2 ? COL3 : COL;
+        doc.rect(cx, y, w, 12).fill(BLUE);
+        doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(8)
+           .text(colTitles[i], cx + 3, y + 2, { width: w - 6, lineBreak: false });
+    });
+
+    const fieldRow = (cx, fy, cw, label, value) => {
+        doc.strokeColor(BORDER).lineWidth(0.3)
+           .moveTo(cx, fy).lineTo(cx + cw, fy).stroke();
+        doc.lineWidth(0.5);
+        doc.fillColor('#333').font('Helvetica').fontSize(6)
+           .text(label, cx + 2, fy + 2, { width: 68, lineBreak: false });
+        doc.fillColor('#000').font('Helvetica').fontSize(7)
+           .text(s(value), cx + 70, fy + 1, { width: cw - 73, lineBreak: false });
+    };
+
+    const ins = d.installer || {};
+    const job = d.jobAddress || {};
+    const cust = d.customer || {};
+
+    let ry = y + 12;
+    [
+        ['Engineer', ins.engineer], ['Company', ins.company], ['Address', ins.address],
+        ['', ins.address2], ['Post Code', ins.postcode], ['Tel. No.', ins.telephone],
+        ['Gas Safe Reg', ins.gasSafeReg], ['ID Card No.', ins.idCardNo],
+    ].forEach(([lbl, val]) => { fieldRow(colX[0], ry, COL, lbl, val); ry += R; });
+
+    ry = y + 12;
+    [
+        ['Name', job.name], ['Address', job.address], ['', job.address2],
+        ['', job.address3], ['Post Code', job.postcode], ['Tel. No.', job.telephone],
+        ['', ''], ['', ''],
+    ].forEach(([lbl, val]) => { fieldRow(colX[1], ry, COL, lbl, val); ry += R; });
+
+    ry = y + 12;
+    [
+        ['Name', cust.name], ['Company', cust.company], ['Address', cust.address],
+        ['', cust.address2], ['Post Code', cust.postcode], ['Tel. No.', cust.telephone],
+        ['Mob. No.', cust.mobile], ['', ''],
+    ].forEach(([lbl, val]) => { fieldRow(colX[2], ry, COL3, lbl, val); ry += R; });
+
+    y += INFO_H;
+
+    // === APPLIANCE DETAILS TABLE ===
+    // Col widths totalling CW (811.89)
+    const A = {
+        no: 14, loc: 75, type: 65, make: 55, model: 55,
+        flue: 26, insp: 26, press: 32, heat: 30,
+        hRat: 20, hCO: 24, hCO2: 20,
+        lRat: 20, lCO: 24, lCO2: 20,
+        safety: 38, vent: 34, flueVis: 34, fluePerf: 32, serviced: 28, safe: 28
+    };
+    // Sum check: 14+75+65+55+55+26+26+32+30+20+24+20+20+24+20+38+34+34+32+28+28 = 710 ... need 812
+    // Add 102 total distributed: loc+22=97, type+10=75, make+10=65, model+10=65, safety+10=48, vent+10=44, flueVis+10=44, fluePerf+10=42, hCO+5=29, lCO+5=29 = 102
+    A.loc += 22; A.type += 10; A.make += 10; A.model += 10;
+    A.safety += 10; A.vent += 10; A.flueVis += 10; A.fluePerf += 10;
+    A.hCO += 5; A.lCO += 5;
+
+    const aOrder = ['no','loc','type','make','model','flue','insp','press','heat','hRat','hCO','hCO2','lRat','lCO','lCO2','safety','vent','flueVis','fluePerf','serviced','safe'];
+    const aX = {};
+    let ax = M;
+    aOrder.forEach(k => { aX[k] = ax; ax += A[k]; });
+
+    const APP_HDR = 12;
+    const TBL_HDR1 = 16;
+    const TBL_HDR2 = 13;
+    const TBL_ROW = 11;
+    const TBL_H = APP_HDR + TBL_HDR1 + TBL_HDR2 + TBL_ROW * 6;
+
+    doc.rect(M, y, CW, APP_HDR).fill(BLUE);
+    doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(8)
+       .text('Appliance Details', M + 3, y + 2, { width: CW / 2 })
+       .text('Inspection Details', M + CW / 2, y + 2, { width: CW / 2 - 5, align: 'right' });
+
+    y += APP_HDR;
+
+    // Header rows background
+    doc.rect(M, y, CW, TBL_HDR1 + TBL_HDR2).fill(LIGHT_BLUE);
+    doc.rect(M, y, CW, TBL_HDR1 + TBL_HDR2).stroke();
+
+    // Group headers row 1
+    const grpHdr = (k1, k2, label) => {
+        const x1 = aX[k1], x2 = aX[k2] + A[k2];
+        const gw = x2 - x1;
+        doc.fillColor('#000').font('Helvetica-Bold').fontSize(5.5)
+           .text(label, x1 + 1, y + 1, { width: gw - 2, align: 'center', lineBreak: false });
+    };
+
+    const singleHdr = (k, label) => {
+        doc.fillColor('#000').font('Helvetica-Bold').fontSize(5)
+           .text(label, aX[k] + 1, y + 1, { width: A[k] - 2, align: 'center' });
+    };
+
+    singleHdr('no', '');
+    singleHdr('loc', 'Location');
+    singleHdr('type', 'Appliance Type');
+    singleHdr('make', 'Make');
+    singleHdr('model', 'Model');
+    singleHdr('flue', 'Flue\nType');
+    singleHdr('insp', 'Appl.\nInspected');
+    singleHdr('press', 'Operating\nPressure\n(mbar)');
+    singleHdr('heat', 'Heat Input\n(kWh)');
+    grpHdr('hRat', 'hCO2', 'High Combustion Reading');
+    grpHdr('lRat', 'lCO2', 'Low Combustion Reading');
+    singleHdr('safety', 'Safety\ndevice(s)\ncorrect\noperation');
+    singleHdr('vent', 'Ventilation\nProvision\nsatisfactory');
+    singleHdr('flueVis', 'Visual\ncondition\nof flue &\ntermination');
+    singleHdr('fluePerf', 'Flue\nPerformance\ntest');
+    singleHdr('serviced', 'Appliance\nServiced');
+    singleHdr('safe', 'Appliance\nsafe to\nuse');
+
+    y += TBL_HDR1;
+
+    // Sub-header row 2 (combustion sub-cols)
+    const subHdr = (k, label) => {
+        doc.fillColor('#000').font('Helvetica-Bold').fontSize(5)
+           .text(label, aX[k] + 1, y + 1, { width: A[k] - 2, align: 'center', lineBreak: false });
+        doc.strokeColor(BORDER).lineWidth(0.3)
+           .moveTo(aX[k], y).lineTo(aX[k], y + TBL_HDR2).stroke();
+        doc.lineWidth(0.5);
+    };
+
+    ['hRat','hCO','hCO2'].forEach((k,i) => subHdr(k, ['Ratio','CO ppm','CO2%'][i]));
+    ['lRat','lCO','lCO2'].forEach((k,i) => subHdr(k, ['Ratio','CO ppm','CO2%'][i]));
+
+    // Horizontal divider between header rows
+    doc.strokeColor(BORDER).lineWidth(0.3)
+       .moveTo(aX['hRat'], y).lineTo(aX['lCO2'] + A['lCO2'], y).stroke()
+       .moveTo(M, y).lineTo(M + CW, y).stroke();
+    doc.lineWidth(0.5);
+
+    y += TBL_HDR2;
+
+    // 6 appliance rows
+    const appliances = Array.isArray(d.appliances) ? d.appliances : [];
+    for (let i = 0; i < 6; i++) {
+        const ap = appliances[i] || {};
+        const rowY = y + i * TBL_ROW;
+        if (i % 2 === 0) doc.rect(M, rowY, CW, TBL_ROW).fill('#fafafa');
+        doc.rect(M, rowY, CW, TBL_ROW).stroke();
+
+        const cell = (k, val) => {
+            doc.strokeColor(BORDER).lineWidth(0.3)
+               .moveTo(aX[k], rowY).lineTo(aX[k], rowY + TBL_ROW).stroke();
+            doc.lineWidth(0.5);
+            doc.fillColor('#000').font('Helvetica').fontSize(6)
+               .text(s(val), aX[k] + 1, rowY + 2, { width: A[k] - 2, align: 'center', lineBreak: false });
+        };
+
+        doc.fillColor('#333').font('Helvetica-Bold').fontSize(6)
+           .text(String(i + 1), aX['no'] + 1, rowY + 2, { width: A['no'] - 2, align: 'center' });
+        cell('loc', ap.location);
+        cell('type', ap.type);
+        cell('make', ap.make);
+        cell('model', ap.model);
+        cell('flue', ap.flue);
+        cell('insp', ap.inspected);
+        cell('press', ap.pressure);
+        cell('heat', ap.heat);
+        cell('hRat', ap.highRatio);
+        cell('hCO', ap.highCO);
+        cell('hCO2', ap.highCO2);
+        cell('lRat', ap.lowRatio);
+        cell('lCO', ap.lowCO);
+        cell('lCO2', ap.lowCO2);
+        cell('safety', ap.safety);
+        cell('vent', ap.ventilation);
+        cell('flueVis', ap.flueVisual);
+        cell('fluePerf', ap.fluePerf);
+        cell('serviced', ap.serviced);
+        cell('safe', ap.safeToUse);
+    }
+
+    y += TBL_ROW * 6;
+
+    // === DEFECTS / ALARMS ROW ===
+    const DEF_H = 70;
+    const defW = CW * 0.6;
+    const alarmW = CW - defW;
+
+    doc.rect(M, y, defW, 12).fill(BLUE);
+    doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(8)
+       .text('Defects / Identified', M + 3, y + 2, { width: defW - 6 });
+
+    // Labels & warning notice (right of defects header)
+    doc.fillColor('#000').font('Helvetica').fontSize(6.5)
+       .text('Labels and Warning Notice Issued', M + defW + 5, y + 2, { width: alarmW - 10 });
+    const lwn = s(d.checks && d.checks.labelsWarningNotice);
+    doc.rect(M + defW + alarmW - 20, y + 1, 10, 10).stroke();
+    doc.font('Helvetica').fontSize(6).text(lwn, M + defW + alarmW - 19, y + 3, { width: 8, align: 'center', lineBreak: false });
+
+    y += 12;
+
+    // Defect lines
+    const defects = Array.isArray(d.defects) ? d.defects : [];
+    for (let i = 0; i < 6; i++) {
+        const dy = y + i * ((DEF_H - 12) / 6);
+        doc.strokeColor(BORDER).lineWidth(0.3)
+           .moveTo(M, dy).lineTo(M + defW, dy).stroke();
+        doc.lineWidth(0.5);
+        doc.fillColor('#555').font('Helvetica').fontSize(6)
+           .text(String(i + 1), M + 2, dy + 2, { width: 8, lineBreak: false });
+        doc.fillColor('#000').font('Helvetica').fontSize(7)
+           .text(s(defects[i]), M + 12, dy + 2, { width: defW - 16, lineBreak: false });
+    }
+
+    // CO / Smoke alarms (right panel)
+    const alarmX = M + defW;
+    const alarmCX = alarmX + 5;
+    const chk = d.checks || {};
+
+    const alarmHalf = (DEF_H - 12) / 2;
+    doc.rect(alarmX, y, alarmW, alarmHalf).stroke();
+    doc.rect(alarmX + alarmW * 0.5, y - 12, alarmW * 0.5, 12).fill(BLUE);
+    doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(7)
+       .text('CO Alarm(s)', alarmX + 3, y - 10, { width: alarmW * 0.5 - 6, lineBreak: false });
+    doc.rect(alarmX + alarmW * 0.5, y - 12, alarmW * 0.5, 12).stroke();
+    doc.rect(alarmX + alarmW * 0.5 + (alarmW * 0.5), y - 12, alarmW * 0.5, 12).fill(BLUE);
+    doc.fillColor(WHITE).font('Helvetica-Bold').fontSize(7)
+       .text('Smoke Alarm(s)', alarmX + alarmW * 0.5 + 3, y - 10, { width: alarmW * 0.5 - 6, lineBreak: false });
+
+    // Simpler alarm layout
+    doc.fillColor('#000').font('Helvetica').fontSize(6.5);
+    const alarmItem = (ax, ay, label, val) => {
+        doc.rect(ax + 2, ay + 2, 9, 9).stroke();
+        doc.text(s(val) === 'Y' ? '✓' : '', ax + 3, ay + 3, { width: 7, align: 'center', lineBreak: false });
+        doc.text(label, ax + 14, ay + 3, { width: alarmW / 2 - 20, lineBreak: false });
+    };
+
+    const alarmMidX = alarmX + alarmW / 2;
+    alarmItem(alarmX, y, 'CO Alarm(s) fitted', chk.coFitted);
+    alarmItem(alarmX, y + 14, 'CO Alarm(s) tested and Satisfactory', chk.coTested);
+    alarmItem(alarmMidX, y, 'Smoke Alarm(s) fitted', chk.smokeFitted);
+    alarmItem(alarmMidX, y + 14, 'Smoke Alarm(s) tested and Satisfactory', chk.smokeTested);
+
+    y += DEF_H - 12;
+
+    // === CHECKS + COMMENTS ===
+    const CHK_H = 78;
+    const chkW = CW * 0.55;
+    const cmtW = CW - chkW;
+
+    doc.rect(M, y, CW, CHK_H).stroke();
+    doc.moveTo(M + chkW, y).lineTo(M + chkW, y + CHK_H).stroke();
+
+    const checkBox = (cx, cy, label, val) => {
+        doc.rect(cx + 2, cy + 2, 9, 9).stroke();
+        if (s(val) === 'Y') {
+            doc.fillColor('#000').font('Helvetica').fontSize(8)
+               .text('✓', cx + 3, cy + 2, { width: 7, align: 'center', lineBreak: false });
+        }
+        doc.fillColor('#000').font('Helvetica').fontSize(6.5)
+           .text(label, cx + 14, cy + 3, { width: chkW - 18, lineBreak: false });
+        if (val && val !== 'Y' && val !== 'N') {
+            doc.text(' (' + val + ')', cx + 14 + Math.min(label.length * 3.5, chkW - 35), cy + 3, { lineBreak: false });
+        }
+    };
+
+    let cy2 = y + 3;
+    checkBox(M, cy2, 'Emergency Control Accessible', chk.emergencyControl); cy2 += 12;
+    checkBox(M, cy2, 'Gas Tightness Satisfactory', chk.gasTightness); cy2 += 12;
+    checkBox(M, cy2, 'Gas Installation Pipework Visual Inspection Satisfactory', chk.pipeworkVisual); cy2 += 12;
+    checkBox(M, cy2, 'Equipotential Bonding', chk.equipotentialBonding); cy2 += 12;
+    checkBox(M, cy2, 'Water quality/level of inhibitor acceptable', chk.waterQuality); cy2 += 12;
+
+    // Next inspection
+    doc.fillColor('#000').font('Helvetica-Bold').fontSize(6.5)
+       .text('NEXT INSPECTION DUE BEFORE', M + 2, cy2 + 3, { lineBreak: false });
+    doc.rect(M + 165, cy2 + 1, 75, 11).stroke();
+    doc.font('Helvetica').fontSize(7)
+       .text(s(d.nextInspection), M + 167, cy2 + 3, { width: 71, lineBreak: false });
+
+    // Comments
+    doc.fillColor('#000').font('Helvetica-Bold').fontSize(8)
+       .text('Comments', M + chkW + 3, y + 3);
+    doc.font('Helvetica').fontSize(7)
+       .text(s(d.comments), M + chkW + 3, y + 16, { width: cmtW - 6, height: CHK_H - 20 });
+
+    y += CHK_H;
+
+    // === SIGNATURES ===
+    const SIG_H = 48;
+    doc.rect(M, y, CW, SIG_H).stroke();
+
+    const sigCW = CW / 3;
+    doc.moveTo(M + sigCW, y).lineTo(M + sigCW, y + SIG_H).stroke();
+    doc.moveTo(M + sigCW * 2, y).lineTo(M + sigCW * 2, y + SIG_H).stroke();
+
+    const sigBlock = (sx, label1, label2, name) => {
+        doc.fillColor('#555').font('Helvetica').fontSize(6)
+           .text(label1, sx + 3, y + 3, { width: sigCW - 8, lineBreak: false });
+        doc.moveTo(sx + 3, y + 20).lineTo(sx + sigCW - 5, y + 20).strokeColor(BORDER).lineWidth(0.3).stroke();
+        doc.lineWidth(0.5);
+        doc.fillColor('#555').font('Helvetica').fontSize(6)
+           .text(label2, sx + 3, y + 25, { width: sigCW - 8, lineBreak: false });
+        doc.rect(sx + 3, y + 33, sigCW - 8, 11).stroke();
+        doc.fillColor('#000').font('Helvetica').fontSize(7)
+           .text(s(name), sx + 5, y + 35, { width: sigCW - 14, lineBreak: false });
+    };
+
+    sigBlock(M, 'Issued by: Signed', 'Print Name', d.issuedBy);
+    sigBlock(M + sigCW, 'Received by: Signed', 'Print Name', d.receivedBy);
+
+    // Date block
+    const dateX = M + sigCW * 2;
+    doc.fillColor('#555').font('Helvetica').fontSize(6)
+       .text('Date', dateX + 3, y + 3, { width: sigCW - 8, lineBreak: false });
+    doc.rect(dateX + 3, y + 12, sigCW - 8, 14).stroke();
+    doc.fillColor('#000').font('Helvetica').fontSize(9)
+       .text(s(d.date || new Date().toLocaleDateString('en-GB')), dateX + 5, y + 14, { width: sigCW - 14, lineBreak: false });
 }
 
 function saveUploadedImage(fileData, prefix, targetDir) {
@@ -1034,6 +1426,98 @@ http.createServer(async (req, res) => {
             });
         } catch (err) {
             sendJSON(res, 400, { success: false, error: err.message });
+        }
+        return;
+    }
+
+    // ---- CERTIFICATE ROUTES ----
+
+    // POST /api/installer/certificates — create CP12 and return PDF
+    if (req.method === 'POST' && url === '/api/installer/certificates') {
+        const session = authenticateRequest(req);
+        if (!session) { sendJSON(res, 401, { success: false, error: 'Not authenticated' }); return; }
+
+        try {
+            const data = await parseBody(req);
+            if (!data.certType) { sendJSON(res, 400, { success: false, error: 'certType required' }); return; }
+
+            const certNo = getNextCertNo();
+            const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+            const cert = {
+                id, certNo,
+                type: data.certType,
+                installerId: session.username,
+                customerName: (data.customer && data.customer.name) || '',
+                jobAddress: (data.jobAddress && data.jobAddress.address) || '',
+                issuedAt: new Date().toISOString(),
+                formData: data
+            };
+            const certs = readCertificates();
+            certs.push(cert);
+            saveCertificates(certs);
+
+            const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0, autoFirstPage: true });
+            res.writeHead(200, {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="CP12-${certNo}.pdf"`,
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            });
+            doc.pipe(res);
+            drawCP12(doc, { ...data, certNo });
+            doc.end();
+            console.log(`[CERT] ${cert.type} #${certNo} issued by ${session.username}`);
+        } catch (err) {
+            console.error('[ERROR] Certificate generation failed:', err.message);
+            if (!res.headersSent) {
+                sendJSON(res, 500, { success: false, error: err.message });
+            }
+        }
+        return;
+    }
+
+    // GET /api/installer/certificates — list certificates
+    if (req.method === 'GET' && url === '/api/installer/certificates') {
+        const session = authenticateRequest(req);
+        if (!session) { sendJSON(res, 401, { success: false, error: 'Not authenticated' }); return; }
+
+        const certs = readCertificates();
+        const list = session.role === 'admin'
+            ? certs
+            : certs.filter(c => c.installerId === session.username);
+        sendJSON(res, 200, {
+            success: true,
+            certificates: list.map(({ formData, ...c }) => c)
+        });
+        return;
+    }
+
+    // GET /api/installer/certificates/:id/pdf — re-download existing cert PDF
+    if (req.method === 'GET' && /^\/api\/installer\/certificates\/[^/]+\/pdf$/.test(url)) {
+        const session = authenticateRequest(req);
+        if (!session) { sendJSON(res, 401, { success: false, error: 'Not authenticated' }); return; }
+
+        const certId = url.split('/')[4];
+        const certs = readCertificates();
+        const cert = certs.find(c => c.id === certId);
+        if (!cert) { sendJSON(res, 404, { success: false, error: 'Certificate not found' }); return; }
+        if (session.role !== 'admin' && cert.installerId !== session.username) {
+            sendJSON(res, 403, { success: false, error: 'Access denied' }); return;
+        }
+
+        try {
+            const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0, autoFirstPage: true });
+            res.writeHead(200, {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="CP12-${cert.certNo}.pdf"`,
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            });
+            doc.pipe(res);
+            drawCP12(doc, { ...(cert.formData || {}), certNo: cert.certNo });
+            doc.end();
+        } catch (err) {
+            if (!res.headersSent) sendJSON(res, 500, { success: false, error: err.message });
         }
         return;
     }
