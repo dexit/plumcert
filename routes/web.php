@@ -7,6 +7,7 @@ use App\Http\Controllers\FindingsController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ToolsController;
+use App\Http\Controllers\CertificateController;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/about', [PageController::class, 'about'])->name('about');
@@ -23,3 +24,4 @@ Route::get('/estate-agents', [PageController::class, 'estateAgents'])->name('est
 Route::get('/landlords', [PageController::class, 'landlords'])->name('landlords');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy');
 Route::get('/terms', [PageController::class, 'terms'])->name('terms');
+Route::get('/certificate/{certificate}/pdf', [CertificateController::class, 'download'])->name('certificate.pdf');

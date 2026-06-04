@@ -24,7 +24,7 @@ class CertificateController extends Controller
         $cert_no = 'CERT-' . Str::upper(Str::random(10));
 
         $certificate = Certificate::create([
-            'cert_no' => $cert_no,
+            'certificate_number' => $cert_no,
             'type' => $validated['type'],
             'customer_id' => $validated['customer_id'],
             'property_id' => $validated['property_id'],

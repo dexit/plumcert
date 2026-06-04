@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['job_id', 'customer_id', 'property_id', 'boiler_id', 'issued_by_user_id', 'certificate_number', 'form_data', 'issued_at', 'sent_at', 'signed_by_engineer', 'signed_by_customer'])]
+#[Fillable(['job_id', 'customer_id', 'property_id', 'boiler_id', 'issued_by_user_id', 'certificate_number', 'type', 'pdf_path', 'form_data', 'issued_at', 'sent_at', 'signed_by_engineer', 'signed_by_customer'])]
 class Certificate extends Model
 {
     use HasFactory, SoftDeletes;

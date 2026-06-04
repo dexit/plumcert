@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['customer_id', 'name', 'address', 'postcode', 'property_type', 'year_built'])]
+#[Fillable(['customer_id', 'address', 'postcode', 'town', 'county', 'notes'])]
 class Property extends Model
 {
     use HasFactory, SoftDeletes;

@@ -22,7 +22,11 @@ class BoilerResource extends Resource
 {
     protected static ?string $model = Boiler::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedFire;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'CRM';
+
+    protected static ?int $navigationSort = 3;
 
     public static function form(Schema $schema): Schema
     {

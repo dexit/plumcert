@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('certificates', function (Blueprint $table) {
             $table->id();
-            $table->string('cert_no')->unique();
+            $table->string('certificate_number')->unique();
             $table->string('type');
             $table->foreignId('job_id')->nullable()->constrained('service_jobs')->nullOnDelete();
             $table->foreignId('customer_id')->nullable()->constrained('customers')->nullOnDelete();
@@ -28,7 +28,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index('cert_no');
+            $table->index('certificate_number');
             $table->index('job_id');
             $table->index('customer_id');
             $table->index('property_id');

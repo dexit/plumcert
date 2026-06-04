@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['property_id', 'make', 'model', 'serial_number', 'install_date', 'last_service_date', 'next_service_due'])]
+#[Fillable(['property_id', 'make', 'model', 'serial', 'gc_number', 'install_date', 'last_service_date', 'next_service_due'])]
 class Boiler extends Model
 {
     use HasFactory, SoftDeletes;

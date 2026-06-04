@@ -34,7 +34,7 @@ class Lead extends Model
             'created_by' => $createdBy?->id,
             'first_name' => $lead->name,
             'email' => $lead->email,
-            'phone' => $lead->phone,
+            'tel' => $lead->phone,
         ]);
     }
 }

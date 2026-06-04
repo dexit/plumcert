@@ -11,18 +11,15 @@ class JobInfolist
     {
         return $schema
             ->components([
-                TextEntry::make('queue'),
-                TextEntry::make('payload')
-                    ->columnSpanFull(),
-                TextEntry::make('attempts')
-                    ->numeric(),
-                TextEntry::make('reserved_at')
-                    ->numeric()
-                    ->placeholder('-'),
-                TextEntry::make('available_at')
-                    ->numeric(),
-                TextEntry::make('created_at')
-                    ->numeric(),
+                TextEntry::make('customer.first_name')->label('Customer'),
+                TextEntry::make('property.address')->label('Property'),
+                TextEntry::make('assignedTo.name')->label('Assigned To'),
+                TextEntry::make('title')->columnSpanFull(),
+                TextEntry::make('description')->columnSpanFull(),
+                TextEntry::make('status')->badge(),
+                TextEntry::make('scheduled_at')->dateTime(),
+                TextEntry::make('completed_at')->dateTime()->placeholder('Not completed'),
+                TextEntry::make('created_at')->dateTime(),
             ]);
     }
 }
