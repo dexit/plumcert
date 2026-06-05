@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Lead;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -24,9 +25,8 @@ class BookingController extends Controller
             'message' => 'nullable|string',
         ]);
 
-        // Save to leads (placeholder)
-        // Lead::create($validated);
+        Lead::create([...$validated, 'source' => 'website', 'status' => 'new']);
 
-        return redirect()->route('home')->with('success', 'Booking request submitted.');
+        return redirect()->route('home')->with('success', 'Booking request received! We will be in touch within 2 hours.');
     }
 }

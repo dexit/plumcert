@@ -74,6 +74,7 @@ class CertificateWizard
                     ->relationship('job', 'title')
                     ->searchable()
                     ->preload()
+                    ->default(fn () => request('job_id') ? (int) request('job_id') : null)
                     ->live()
                     ->afterStateUpdated(function (?int $state, Set $set) {
                         if (! $state) return;
@@ -106,6 +107,7 @@ class CertificateWizard
                         ->mapWithKeys(fn ($c) => [$c->id => trim($c->first_name . ' ' . $c->last_name) . ($c->postcode ? " ({$c->postcode})" : '')]))
                     ->searchable()
                     ->required()
+                    ->default(fn () => request('customer_id') ? (int) request('customer_id') : null)
                     ->live()
                     ->afterStateUpdated(function (?int $state, Set $set) {
                         $set('property_id', null);

@@ -17,10 +17,18 @@ class InvoiceController extends Controller
     {
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,id',
-            'amount' => 'required|numeric',
-            'description' => 'nullable|string',
+            'job_id' => 'nullable|exists:service_jobs,id',
+            'quote_id' => 'nullable|exists:quotes,id',
+            'line_items' => 'nullable|array',
+            'subtotal' => 'nullable|numeric',
+            'vat' => 'nullable|numeric',
+            'total' => 'nullable|numeric',
             'due_date' => 'nullable|date',
+            'notes' => 'nullable|string',
         ]);
+
+        $invoice_number = 'INV-' . str_pad(Invoice::max('id') + 1, 5, '0', STR_PAD_LEFT);
+        $validated['invoice_number'] = $invoice_number;
 
         $invoice = Invoice::create($validated);
         return response()->json($invoice, 201);
@@ -34,9 +42,13 @@ class InvoiceController extends Controller
     public function update(Request $request, Invoice $invoice)
     {
         $validated = $request->validate([
-            'amount' => 'sometimes|numeric',
-            'description' => 'sometimes|string',
+            'line_items' => 'sometimes|array',
+            'subtotal' => 'sometimes|numeric',
+            'vat' => 'sometimes|numeric',
+            'total' => 'sometimes|numeric',
+            'paid_amount' => 'sometimes|numeric',
             'due_date' => 'sometimes|date',
+            'notes' => 'sometimes|string',
         ]);
 
         $invoice->update($validated);
@@ -51,9 +63,10 @@ class InvoiceController extends Controller
 
     public function markPaid(Invoice $invoice, Request $request)
     {
+        $paid_amount = $invoice->paid_amount ?? $invoice->total;
         $invoice->update([
-            'status' => 'paid',
             'paid_at' => now(),
+            'paid_amount' => $paid_amount,
         ]);
 
         return response()->json($invoice);

@@ -18,6 +18,7 @@ class JobForm
                     ->relationship('customer', 'first_name')
                     ->searchable()
                     ->preload()
+                    ->default(fn () => request('customer_id') ? (int) request('customer_id') : null)
                     ->required(),
                 Select::make('property_id')
                     ->relationship('property', 'address')

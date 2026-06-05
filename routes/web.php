@@ -25,3 +25,5 @@ Route::get('/landlords', [PageController::class, 'landlords'])->name('landlords'
 Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy');
 Route::get('/terms', [PageController::class, 'terms'])->name('terms');
 Route::get('/certificate/{certificate}/pdf', [CertificateController::class, 'download'])->name('certificate.pdf');
+Route::get('/invoice/{invoice}/pdf', [\App\Http\Controllers\InvoiceController::class, 'download'])->name('invoice.pdf');
+Route::get('/quote/{quote}/pdf', [\App\Http\Controllers\QuoteController::class, 'download'])->name('quote.pdf');

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\CertificateMail;
 use App\Models\Certificate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class CertificateController extends Controller
@@ -84,8 +86,11 @@ class CertificateController extends Controller
             'email' => 'required|email',
         ]);
 
-        // Stub: send email to customer
-        return response()->json(['message' => 'Email queued', 'email' => $validated['email']]);
+        Mail::to($validated['email'])->send(new CertificateMail($certificate, $validated['email']));
+
+        $certificate->update(['sent_at' => now()]);
+
+        return response()->json(['message' => 'Certificate emailed to ' . $validated['email']]);
     }
 
     public function sign(Certificate $certificate, Request $request)

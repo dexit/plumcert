@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Jobs;
 
+use App\Mail\ServiceReminderMail;
 use App\Models\Reminder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -17,22 +20,18 @@ class SendReminderJob implements ShouldQueue
 
     public function handle()
     {
-        $boiler = $this->reminder->boiler;
-        $email = $boiler->customer->email ?? null;
+        $boiler = $this->reminder->load(['boiler.property.customer', 'customer', 'property'])->boiler;
+        $email = $this->reminder->customer?->email ?? $boiler?->property?->customer?->email;
 
         if (!$email) {
-            \Log::info("No email for boiler {$boiler->id}");
+            \Log::info("No email for boiler {$boiler?->id}");
             return;
         }
 
-        Mail::raw(
-            "Service reminder for boiler {$boiler->model} - Service due: {$boiler->next_service_due}",
-            function ($message) use ($email, $boiler) {
-                $message->to($email)
-                    ->subject("Service Reminder: {$boiler->model}");
-            }
-        );
+        Mail::to($email)->send(new ServiceReminderMail($this->reminder));
 
-        \Log::info("Reminder sent for boiler {$boiler->id} to {$email}");
+        $this->reminder->update(['sent_at' => now()]);
+
+        \Log::info("Reminder sent for boiler {$boiler?->id} to {$email}");
     }
 }

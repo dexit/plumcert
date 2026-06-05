@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Quotes\Tables;
 
+use App\Models\Quote;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -45,6 +47,13 @@ class QuotesTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
+                Action::make('convert_to_invoice')
+                    ->label('Convert to Invoice')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Convert Quote to Invoice?')
+                    ->action(fn (Quote $record) => $record->convertToInvoice()),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

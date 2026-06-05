@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Lead;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -23,8 +24,7 @@ class ContactController extends Controller
             'message' => 'required|string',
         ]);
 
-        // Save to leads (placeholder)
-        // Lead::create([...$validated, 'source' => 'contact']);
+        Lead::create(['name'=>$validated['name'], 'email'=>$validated['email'], 'phone'=>$validated['phone'], 'message'=>$validated['message'], 'source'=>'contact', 'status'=>'new']);
 
         return redirect()->route('home')->with('success', 'Message sent successfully.');
     }
