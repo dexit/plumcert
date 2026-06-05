@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['customer_id', 'job_id', 'line_items', 'subtotal', 'vat', 'total', 'valid_until', 'notes'])]
+#[Fillable(['customer_id', 'job_id', 'quote_no', 'line_items', 'subtotal', 'vat', 'total', 'status', 'valid_until', 'notes'])]
 class Quote extends Model
 {
     use HasFactory, SoftDeletes;
@@ -40,6 +40,11 @@ class Quote extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function tasks(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Task::class, 'taskable')->orderBy('sort_order');
     }
 
     public function convertToInvoice(): Invoice

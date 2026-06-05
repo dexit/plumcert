@@ -12,16 +12,40 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['company_id', 'created_by', 'title', 'first_name', 'last_name', 'company_name', 'address', 'postcode', 'town', 'county', 'tel', 'mobile', 'email', 'vat_number', 'type', 'notes'])]
+#[Fillable(['company_id', 'created_by', 'title', 'first_name', 'last_name', 'company_name', 'address', 'postcode', 'town', 'county', 'tel', 'mobile', 'email', 'vat_number', 'type', 'category', 'business_type', 'contact_name', 'notes'])]
 class Customer extends Model
 {
     use HasFactory, SoftDeletes;
+
+    public const CATEGORIES = [
+        'homeowner'  => 'Homeowner (single property)',
+        'landlord'   => 'Landlord (multiple properties)',
+        'commercial' => 'Commercial / Agency',
+    ];
+
+    public const BUSINESS_TYPES = [
+        'estate_agent'        => 'Estate Agent',
+        'letting_agent'       => 'Letting Agent',
+        'property_management' => 'Property Management',
+        'housing_association' => 'Housing Association',
+        'other'               => 'Other Business',
+    ];
 
     protected function casts(): array
     {
         return [
             'type' => 'string',
         ];
+    }
+
+    public function isHomeowner(): bool
+    {
+        return $this->category === 'homeowner';
+    }
+
+    public function allowsMultipleProperties(): bool
+    {
+        return in_array($this->category, ['landlord', 'commercial'], true);
     }
 
     public function company(): BelongsTo

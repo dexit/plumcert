@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Job;
+use App\Models\Quote;
+use App\Observers\JobObserver;
+use App\Observers\QuoteObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Job::observe(JobObserver::class);
+        Quote::observe(QuoteObserver::class);
     }
 }

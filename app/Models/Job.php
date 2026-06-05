@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['customer_id', 'property_id', 'assigned_to_user_id', 'title', 'description', 'status', 'scheduled_at', 'completed_at'])]
+#[Fillable(['customer_id', 'property_id', 'assigned_to_user_id', 'type', 'title', 'description', 'status', 'scheduled_at', 'completed_at', 'notes'])]
 class Job extends Model
 {
     use HasFactory, SoftDeletes;
@@ -60,6 +60,21 @@ class Job extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function tasks(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Task::class, 'taskable')->orderBy('sort_order');
+    }
+
+    public function photos(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Photo::class, 'photoable');
+    }
+
+    public function inspectionItems(): HasMany
+    {
+        return $this->hasMany(InspectionItem::class);
     }
 
     public function scopeToday(Builder $query): Builder
