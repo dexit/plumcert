@@ -12,6 +12,13 @@ class CustomerInfolist
     {
         return $schema
             ->components([
+                TextEntry::make('category')
+                    ->badge()
+                    ->label('Type'),
+                TextEntry::make('business_type')
+                    ->placeholder('-'),
+                TextEntry::make('contact_name')
+                    ->placeholder('-'),
                 TextEntry::make('company.name')
                     ->label('Company')
                     ->placeholder('-'),

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Customers\Tables;
 
+use App\Models\Customer;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -9,6 +10,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
@@ -18,6 +20,16 @@ class CustomersTable
     {
         return $table
             ->columns([
+                TextColumn::make('category')
+                    ->badge()
+                    ->label('Type')
+                    ->color(fn (string $state): string => match($state) {
+                        'landlord' => 'warning',
+                        'commercial' => 'info',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn ($state) => ucfirst($state))
+                    ->searchable(),
                 TextColumn::make('company.name')
                     ->searchable(),
                 TextColumn::make('created_by')
@@ -62,6 +74,8 @@ class CustomersTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('category')
+                    ->options(Customer::CATEGORIES),
                 TrashedFilter::make(),
             ])
             ->recordActions([

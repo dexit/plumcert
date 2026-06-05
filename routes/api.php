@@ -17,6 +17,9 @@ use App\Http\Controllers\Api\{
     CalculatorController,
     SyncController,
     WebhookController,
+    TaskController,
+    PhotoController,
+    InspectionController,
 };
 
 Route::prefix('v1')->group(function () {
@@ -69,6 +72,17 @@ Route::prefix('v1')->group(function () {
 
         Route::apiResource('reminders', ReminderController::class);
         Route::post('reminders/{reminder}/send', [ReminderController::class, 'sendNow']);
+
+        Route::apiResource('tasks', TaskController::class);
+        Route::post('tasks/{task}/start', [TaskController::class, 'start']);
+        Route::post('tasks/{task}/complete', [TaskController::class, 'complete']);
+        Route::get('jobs/{job}/tasks', [TaskController::class, 'index']);
+
+        Route::apiResource('photos', PhotoController::class)->only(['index', 'store', 'destroy']);
+
+        Route::get('inspections/categories', [InspectionController::class, 'categories']);
+        Route::apiResource('inspections', InspectionController::class);
+        Route::get('jobs/{job}/inspections', [InspectionController::class, 'index']);
 
         Route::post('sync/pull', [SyncController::class, 'pull']);
         Route::post('sync/push', [SyncController::class, 'push']);

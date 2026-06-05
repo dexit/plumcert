@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Customers\Schemas;
 
+use App\Models\Customer;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Get;
 use Filament\Schemas\Schema;
 
 class CustomerForm
@@ -13,6 +15,20 @@ class CustomerForm
     {
         return $schema
             ->components([
+                Select::make('category')
+                    ->label('Customer Type')
+                    ->options(Customer::CATEGORIES)
+                    ->required()
+                    ->default('homeowner')
+                    ->live()
+                    ->native(false),
+                Select::make('business_type')
+                    ->label('Business Type')
+                    ->options(Customer::BUSINESS_TYPES)
+                    ->visible(fn (Get $get) => $get('category') === 'commercial'),
+                TextInput::make('contact_name')
+                    ->label('Primary Contact Name')
+                    ->visible(fn (Get $get) => in_array($get('category'), ['commercial', 'landlord'])),
                 Select::make('company_id')
                     ->relationship('company', 'name'),
                 TextInput::make('created_by')
@@ -21,7 +37,8 @@ class CustomerForm
                 TextInput::make('first_name')
                     ->required(),
                 TextInput::make('last_name'),
-                TextInput::make('company_name'),
+                TextInput::make('company_name')
+                    ->visible(fn (Get $get) => $get('category') === 'commercial'),
                 Textarea::make('address')
                     ->columnSpanFull(),
                 TextInput::make('postcode'),
@@ -33,7 +50,8 @@ class CustomerForm
                 TextInput::make('email')
                     ->label('Email address')
                     ->email(),
-                TextInput::make('vat_number'),
+                TextInput::make('vat_number')
+                    ->visible(fn (Get $get) => $get('category') === 'commercial'),
                 TextInput::make('type')
                     ->required()
                     ->default('residential'),
