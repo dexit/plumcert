@@ -8,6 +8,7 @@ use App\Filament\Resources\Certificates\Pages\ListCertificates;
 use App\Filament\Resources\Certificates\Pages\ViewCertificate;
 use App\Filament\Resources\Certificates\Schemas\CertificateForm;
 use App\Filament\Resources\Certificates\Schemas\CertificateInfolist;
+use App\Filament\Resources\Certificates\Schemas\CertificateWizard;
 use App\Filament\Resources\Certificates\Tables\CertificatesTable;
 use App\Models\Certificate;
 use BackedEnum;
@@ -30,7 +31,13 @@ class CertificateResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
+        // Wizard used on Create page; Edit page uses flat form
         return CertificateForm::configure($schema);
+    }
+
+    public static function wizard(Schema $schema): Schema
+    {
+        return CertificateWizard::configure($schema);
     }
 
     public static function infolist(Schema $schema): Schema
