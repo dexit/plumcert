@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    // SMS / WhatsApp via Twilio. When credentials are absent the sender falls
+    // back to the 'log' driver so reminders still flow in dev.
+    'twilio' => [
+        'driver'        => env('SMS_DRIVER', 'log'), // log | twilio
+        'sid'           => env('TWILIO_SID'),
+        'token'         => env('TWILIO_TOKEN'),
+        'from'          => env('TWILIO_FROM'),            // e.g. +447700900000
+        'whatsapp_from' => env('TWILIO_WHATSAPP_FROM'),   // e.g. +14155238886
+    ],
+
 ];

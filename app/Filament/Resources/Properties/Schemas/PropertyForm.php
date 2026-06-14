@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Properties\Schemas;
 
+use App\Filament\Forms\AddressLookup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -16,6 +17,7 @@ class PropertyForm
                 Select::make('customer_id')
                     ->relationship('customer', 'title')
                     ->required(),
+                AddressLookup::make('address'),
                 Textarea::make('address')
                     ->required()
                     ->columnSpanFull(),

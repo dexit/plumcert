@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Customers\Schemas;
 
+use App\Filament\Forms\AddressLookup;
 use App\Models\Customer;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -39,6 +40,7 @@ class CustomerForm
                 TextInput::make('last_name'),
                 TextInput::make('company_name')
                     ->visible(fn (Get $get) => $get('category') === 'commercial'),
+                AddressLookup::make('address'),
                 Textarea::make('address')
                     ->columnSpanFull(),
                 TextInput::make('postcode'),
