@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['customer_id', 'property_id', 'boiler_id', 'title', 'description', 'due_at', 'sent_at'])]
+#[Fillable(['customer_id', 'property_id', 'boiler_id', 'certificate_id', 'type', 'title', 'description', 'due_at', 'lead_days', 'template_key', 'channel', 'message', 'sent_at'])]
 class Reminder extends Model
 {
     use HasFactory;
@@ -36,6 +36,11 @@ class Reminder extends Model
     public function boiler(): BelongsTo
     {
         return $this->belongsTo(Boiler::class);
+    }
+
+    public function certificate(): BelongsTo
+    {
+        return $this->belongsTo(Certificate::class);
     }
 
     public function scopePending(Builder $query): Builder
