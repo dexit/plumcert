@@ -2,17 +2,22 @@
 
 namespace App\Filament\Resources\Certificates\Tables;
 
+use App\Mail\CertificateMail;
+use App\Models\Certificate;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Mail;
 
 class CertificatesTable
 {
@@ -65,6 +70,32 @@ class CertificatesTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
+                Action::make('email')
+                    ->label('Email to customer')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalDescription('Send this certificate (with PDF if available) to the customer by email.')
+                    ->action(function (Certificate $record) {
+                        $record->loadMissing('customer');
+                        $email = $record->customer?->email;
+
+                        if (! $email) {
+                            Notification::make()
+                                ->title('No customer email on file')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        Mail::to($email)->send(new CertificateMail($record, $email));
+                        $record->update(['sent_at' => now()]);
+
+                        Notification::make()
+                            ->title("Certificate emailed to {$email}")
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

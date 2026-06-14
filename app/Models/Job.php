@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['customer_id', 'property_id', 'assigned_to_user_id', 'type', 'title', 'description', 'status', 'scheduled_at', 'completed_at', 'notes'])]
+#[Fillable(['customer_id', 'property_id', 'assigned_to_user_id', 'type', 'title', 'description', 'status', 'is_recurring', 'recurs_from_certificate_id', 'scheduled_at', 'completed_at', 'notes'])]
 class Job extends Model
 {
     use HasFactory, SoftDeletes;
@@ -24,6 +24,7 @@ class Job extends Model
         return [
             'scheduled_at' => 'datetime',
             'completed_at' => 'datetime',
+            'is_recurring' => 'boolean',
         ];
     }
 

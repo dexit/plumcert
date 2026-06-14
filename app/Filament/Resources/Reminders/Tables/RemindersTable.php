@@ -2,10 +2,14 @@
 
 namespace App\Filament\Resources\Reminders\Tables;
 
+use App\Jobs\SendReminderJob;
+use App\Models\Reminder;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -42,6 +46,21 @@ class RemindersTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
+                Action::make('sendNow')
+                    ->label(fn (Reminder $record) => $record->sent_at ? 'Resend' : 'Send now')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalDescription(fn (Reminder $record) => 'Send this reminder now via its ' . ($record->channel ?? 'email') . ' channel.')
+                    ->action(function (Reminder $record) {
+                        SendReminderJob::dispatchSync($record);
+
+                        Notification::make()
+                            ->title('Reminder dispatched')
+                            ->body('Sent via ' . ($record->channel ?? 'email') . '.')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
