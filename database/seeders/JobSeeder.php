@@ -126,6 +126,10 @@ class JobSeeder extends Seeder
 
                     // Link inspection items to the cert
                     InspectionItem::where('job_id', $job->id)->update(['certificate_id' => $cert->id]);
+
+                    // Observer is suppressed during seeding — schedule the recurring
+                    // follow-up visit directly so the calendar shows future work.
+                    app(\App\Services\RecurringJobScheduler::class)->scheduleFor($cert);
                 }
 
                 // Invoice for completed jobs

@@ -42,12 +42,12 @@ class SendReminderJob implements ShouldQueue
     {
         $email = $customer?->email;
         if (! $email) {
-            Log::info("Reminder {$reminder->id}: no email address — skipped.");
+            Log::channel('plumcert')->info("Reminder {$reminder->id}: no email address — skipped.");
             return false;
         }
 
         Mail::to($email)->send(new ServiceReminderMail($reminder));
-        Log::info("Reminder {$reminder->id} emailed to {$email}.");
+        Log::channel('plumcert')->info("Reminder {$reminder->id} emailed to {$email}.");
 
         return true;
     }
@@ -56,7 +56,7 @@ class SendReminderJob implements ShouldQueue
     {
         $number = $customer?->mobile ?? $customer?->tel;
         if (! $number) {
-            Log::info("Reminder {$reminder->id}: no mobile number for {$channel} — skipped.");
+            Log::channel('plumcert')->info("Reminder {$reminder->id}: no mobile number for {$channel} — skipped.");
             return false;
         }
 

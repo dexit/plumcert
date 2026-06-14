@@ -15,12 +15,6 @@ class CreateUpcomingReminders extends Command
     protected $signature = 'reminders:generate';
     protected $description = 'Generate recurring maintenance & certificate-renewal reminders at staggered lead times';
 
-    /**
-     * Lead times (days before the due date) at which a reminder should fire.
-     * One reminder row is created per lead time per appliance/certificate.
-     */
-    private const LEAD_DAYS = [30, 7, 0];
-
     public function handle(): int
     {
         $boilerCount = $this->generateBoilerServiceReminders();
@@ -28,13 +22,29 @@ class CreateUpcomingReminders extends Command
 
         $this->info("Created {$boilerCount} boiler service reminder(s) and {$certCount} certificate renewal reminder(s).");
 
+        \Illuminate\Support\Facades\Log::channel('plumcert')->info('reminders:generate completed', [
+            'boiler_reminders' => $boilerCount,
+            'cert_reminders'   => $certCount,
+        ]);
+
         return self::SUCCESS;
+    }
+
+    /**
+     * Lead times (days before the due date) at which a reminder should fire.
+     * One reminder row is created per lead time per appliance/certificate.
+     *
+     * @return array<int, int>
+     */
+    private function leadDays(): array
+    {
+        return config('plumcert.reminder_lead_days', [30, 7, 0]);
     }
 
     private function generateBoilerServiceReminders(): int
     {
         $created = 0;
-        $horizon = now()->addDays(max(self::LEAD_DAYS) + 1);
+        $horizon = now()->addDays(max($this->leadDays()) + 1);
 
         $boilers = Boiler::whereNotNull('next_service_due')
             ->whereDate('next_service_due', '<=', $horizon)
@@ -44,7 +54,7 @@ class CreateUpcomingReminders extends Command
         foreach ($boilers as $boiler) {
             $dueAt = Carbon::parse($boiler->next_service_due);
 
-            foreach (self::LEAD_DAYS as $lead) {
+            foreach ($this->leadDays() as $lead) {
                 $fireAt = $this->resolveFireAt($dueAt, $lead);
 
                 // skip if the firing window is in the past (don't backfill early-lead reminders)
@@ -80,7 +90,7 @@ class CreateUpcomingReminders extends Command
     private function generateCertificateRenewalReminders(): int
     {
         $created = 0;
-        $horizon = now()->addDays(max(self::LEAD_DAYS) + 1);
+        $horizon = now()->addDays(max($this->leadDays()) + 1);
 
         // CP12 / gas safety certificates expire 12 months after issue.
         $certificates = Certificate::whereNotNull('issued_at')
@@ -96,7 +106,7 @@ class CreateUpcomingReminders extends Command
                 continue;
             }
 
-            foreach (self::LEAD_DAYS as $lead) {
+            foreach ($this->leadDays() as $lead) {
                 $fireAt = $this->resolveFireAt($expiresAt, $lead);
 
                 if ($fireAt === null) {

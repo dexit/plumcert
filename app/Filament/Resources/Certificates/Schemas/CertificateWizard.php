@@ -505,6 +505,13 @@ class CertificateWizard
                     ->default(now())
                     ->required(),
 
+                Select::make('recurrence_months')
+                    ->label('Recurring follow-up')
+                    ->options(config('plumcert.recurrence_options'))
+                    ->default(fn (Get $get) => config('plumcert.cert_recurrence')[$get('type')] ?? 0)
+                    ->native(false)
+                    ->helperText('Auto-schedules the next compliance visit. Defaults to the standard cycle for this certificate type.'),
+
                 TextInput::make('form_data.issuedBy')
                     ->label('Engineer Printed Name'),
 

@@ -65,6 +65,16 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Dedicated channel for domain events: reminders, recurring jobs,
+        // certificate dispatch, SMS/WhatsApp. Kept separate for auditing.
+        'plumcert' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/plumcert.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),

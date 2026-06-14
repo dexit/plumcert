@@ -23,7 +23,7 @@ class SmsSender
     {
         $to = $this->normalise($to);
         if ($to === '') {
-            Log::warning("SmsSender: no destination number for {$channel} message");
+            Log::channel('plumcert')->warning("SmsSender: no destination number for {$channel} message");
             return false;
         }
 
@@ -36,7 +36,7 @@ class SmsSender
 
     private function sendViaLog(string $to, string $message, string $channel): bool
     {
-        Log::info("[{$channel}→{$to}] {$message}");
+        Log::channel('plumcert')->info("[{$channel}→{$to}] {$message}");
 
         return true;
     }
@@ -47,7 +47,7 @@ class SmsSender
         $token = config('services.twilio.token');
 
         if (! $sid || ! $token) {
-            Log::warning('SmsSender: Twilio driver selected but credentials missing — falling back to log.');
+            Log::channel('plumcert')->warning('SmsSender: Twilio driver selected but credentials missing — falling back to log.');
             return $this->sendViaLog($to, $message, $channel);
         }
 
@@ -68,13 +68,13 @@ class SmsSender
                 ]);
 
             if (! $response->successful()) {
-                Log::error("SmsSender: Twilio {$channel} send failed", ['status' => $response->status(), 'body' => $response->body()]);
+                Log::channel('plumcert')->error("SmsSender: Twilio {$channel} send failed", ['status' => $response->status(), 'body' => $response->body()]);
                 return false;
             }
 
             return true;
         } catch (\Throwable $e) {
-            Log::error("SmsSender: Twilio {$channel} exception — {$e->getMessage()}");
+            Log::channel('plumcert')->error("SmsSender: Twilio {$channel} exception — {$e->getMessage()}");
             return false;
         }
     }

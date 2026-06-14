@@ -67,10 +67,51 @@ CP12 Homeowner, CP12 Landlord, Gas Warning Notice, Installation/Commissioning Ch
 
 ## Scheduler
 
-- Daily 08:00: `reminders:generate` — scans boilers with service due ≤ 30 days
-- Hourly: `reminders:process` — sends pending reminders via email
+| When | Command | Purpose |
+|---|---|---|
+| Daily 08:00 | `reminders:generate` | Creates staggered (30/7/0-day) service + certificate-renewal reminders |
+| Hourly | `reminders:process` | Dispatches due reminders via each reminder's channel (email/SMS/WhatsApp) |
+| Mondays 07:00 | `reminders:report` | Emails the admin a weekly maintenance summary |
 
-Add cron: `* * * * * cd /path-to-plumcert && php artisan schedule:run >> /dev/null 2>&1`
+Lead times and certificate recurrence intervals are configurable in `config/plumcert.php`.
+
+**Install the cron entry** (runs Laravel's scheduler every minute):
+
+```cron
+* * * * * cd /path-to-plumcert && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Verify what's registered with `php artisan schedule:list`. Run any command
+manually, e.g. `php artisan reminders:generate`.
+
+## Recurring jobs
+
+Issuing a CP12 / gas service record auto-schedules the next compliance visit
+(`CertificateObserver` → `RecurringJobScheduler`). The interval comes from
+`config/plumcert.php` (`cert_recurrence`) and can be overridden per certificate
+in the creation wizard ("Recurring follow-up").
+
+## Logging & debugging
+
+- Domain events (reminders, recurring jobs, certificate dispatch, SMS/WhatsApp)
+  log to a dedicated daily channel: `storage/logs/plumcert.log`.
+- `/telescope` — full request/query/job/mail debug panel (admin only).
+- `/horizon` — queue throughput & failed jobs (admin only).
+
+## Email & SMS
+
+- Email: set `MAIL_MAILER=smtp` with Gmail (App Password) — see `.env.example`.
+- SMS/WhatsApp: set `SMS_DRIVER=twilio` + Twilio creds, or leave as `log` for
+  dev (messages are written to `plumcert.log`).
+
+## Tests
+
+```bash
+php artisan test
+```
+
+Covers email-template rendering, SMS sender, OSM address parsing, certificate
+recurrence, reminder generation, and reminder dispatch.
 
 ## Tools (public calculators)
 
@@ -79,12 +120,6 @@ Add cron: `* * * * * cd /path-to-plumcert && php artisan schedule:run >> /dev/nu
 ## API endpoints
 
 ~60 endpoints under `/api/v1/`. See `routes/api.php`.
-
-## Tests
-
-```bash
-php artisan test
-```
 
 ## License
 
