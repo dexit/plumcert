@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('reminders:generate')->dailyAt('08:00');
 Schedule::command('reminders:process')->hourly();
+Schedule::command('reminders:report')->weeklyOn(1, '07:00'); // Monday 07:00 weekly maintenance summary
