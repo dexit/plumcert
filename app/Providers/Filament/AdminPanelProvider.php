@@ -10,6 +10,8 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use App\Filament\Widgets\MaintenanceDue;
+use App\Filament\Widgets\MyOpenTasks;
 use App\Filament\Widgets\OverdueInvoices;
 use App\Filament\Widgets\RecentJobs;
 use App\Filament\Widgets\StatsOverview;
@@ -43,7 +45,9 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 StatsOverview::class,
+                MaintenanceDue::class,
                 RecentJobs::class,
+                MyOpenTasks::class,
                 UpcomingReminders::class,
                 OverdueInvoices::class,
                 AccountWidget::class,

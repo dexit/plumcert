@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Certificates\Schemas;
 
 use App\Models\Boiler;
 use App\Models\Customer;
+use App\Models\InspectionItem;
 use App\Models\Job;
 use App\Models\Property;
 use App\Models\User;
@@ -96,6 +97,40 @@ class CertificateWizard
                                 $set('boiler_id', $boiler->id);
                                 $set('form_data.appliances.0.make', $boiler->make ?? '');
                                 $set('form_data.appliances.0.model', $boiler->model ?? '');
+                            }
+                        }
+
+                        // Pull inspection items logged for this job into the appliances repeater
+                        $items = InspectionItem::where('job_id', $state)
+                            ->whereIn('category', ['gas_boiler', 'gas_appliance', 'heater'])
+                            ->get();
+
+                        if ($items->isNotEmpty()) {
+                            $appliances = $items->values()->map(fn (InspectionItem $item, int $idx) => [
+                                'make'          => $item->make ?? '',
+                                'model'         => $item->model ?? '',
+                                'serial'        => $item->serial ?? '',
+                                'gc_number'     => $item->gc_number ?? '',
+                                'location'      => $item->location ?? '',
+                                'flue_type'     => $item->data['flue_type'] ?? '',
+                                'op_pressure'   => (string) ($item->data['op_pressure_bar'] ?? ''),
+                                'gas_rate'      => (string) ($item->data['gas_rate_m3h'] ?? ''),
+                                'co_reading'    => (string) ($item->data['co_reading_ppm'] ?? ''),
+                                'co2_percent'   => (string) ($item->data['co2_percent'] ?? ''),
+                                'result'        => $item->result ?? 'pass',
+                                'notes'         => $item->notes ?? '',
+                            ])->all();
+
+                            $set('form_data.appliances', $appliances);
+
+                            // Mark safety checks based on CO/smoke alarm inspection items
+                            $safetyChecks = [];
+                            $hasCoAlarm = InspectionItem::where('job_id', $state)->where('category', 'co_alarm')->where('result', 'pass')->exists();
+                            $hasSmokeAlarm = InspectionItem::where('job_id', $state)->where('category', 'smoke_alarm')->where('result', 'pass')->exists();
+                            if ($hasCoAlarm) $safetyChecks[] = 'co_alarm_present';
+                            if ($hasSmokeAlarm) $safetyChecks[] = 'smoke_alarm_present';
+                            if (! empty($safetyChecks)) {
+                                $set('form_data.safetyChecks', $safetyChecks);
                             }
                         }
                     })

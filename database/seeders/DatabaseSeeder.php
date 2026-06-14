@@ -24,6 +24,8 @@ class DatabaseSeeder extends Seeder
             BoilerSeeder::class,
             LeadSeeder::class,
             FindingSeeder::class,
+            EmailTemplateSeeder::class,
+            JobSeeder::class,
         ]);
     }
 }
