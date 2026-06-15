@@ -27,3 +27,11 @@ Route::get('/terms', [PageController::class, 'terms'])->name('terms');
 Route::get('/certificate/{certificate}/pdf', [CertificateController::class, 'download'])->name('certificate.pdf');
 Route::get('/invoice/{invoice}/pdf', [\App\Http\Controllers\InvoiceController::class, 'download'])->name('invoice.pdf');
 Route::get('/quote/{quote}/pdf', [\App\Http\Controllers\QuoteController::class, 'download'])->name('quote.pdf');
+
+// Customer portal — signed URL, no login required
+Route::get('/portal/{customer}', [\App\Http\Controllers\CustomerPortalController::class, 'show'])
+    ->name('portal.show');
+Route::get('/portal/{customer}/cert/{certificate}', [\App\Http\Controllers\CustomerPortalController::class, 'downloadCert'])
+    ->name('portal.cert');
+Route::post('/portal/{customer}/book', [\App\Http\Controllers\CustomerPortalController::class, 'bookingRequest'])
+    ->name('portal.book');
