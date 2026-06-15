@@ -12,12 +12,25 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['customer_id', 'property_id', 'assigned_to_user_id', 'type', 'title', 'description', 'status', 'is_recurring', 'recurs_from_certificate_id', 'scheduled_at', 'completed_at', 'notes'])]
+#[Fillable(['customer_id', 'property_id', 'assigned_to_user_id', 'type', 'form_data', 'title', 'description', 'status', 'is_recurring', 'recurs_from_certificate_id', 'scheduled_at', 'completed_at', 'notes'])]
 class Job extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $table = 'service_jobs';
+
+    /**
+     * Pre-built job categories, each with its own standard form.
+     */
+    public const TYPES = [
+        'installation' => 'Installation',
+        'maintenance'  => 'Maintenance / Service',
+        'emergency'    => 'Emergency Call-Out',
+        'heating'      => 'Heating',
+        'plumbing'     => 'Plumbing',
+        'custom'       => 'Custom',
+        'other'        => 'Other',
+    ];
 
     protected function casts(): array
     {
@@ -25,6 +38,7 @@ class Job extends Model
             'scheduled_at' => 'datetime',
             'completed_at' => 'datetime',
             'is_recurring' => 'boolean',
+            'form_data'    => 'array',
         ];
     }
 
