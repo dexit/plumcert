@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Quotes\Pages;
 
+use App\Filament\Actions\AiGenerateQuoteAction;
 use App\Filament\Resources\Quotes\QuoteResource;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
@@ -16,6 +17,7 @@ class EditQuote extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            AiGenerateQuoteAction::make(),
             ViewAction::make(),
             DeleteAction::make(),
             ForceDeleteAction::make(),
