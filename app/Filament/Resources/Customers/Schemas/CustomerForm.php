@@ -7,6 +7,7 @@ use App\Models\Customer;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Get;
 use Filament\Schemas\Schema;
 
@@ -57,6 +58,13 @@ class CustomerForm
                 TextInput::make('type')
                     ->required()
                     ->default('residential'),
+                Select::make('preferred_channel')
+                    ->label('Preferred Contact Channel')
+                    ->options(['email' => 'Email', 'sms' => 'SMS', 'whatsapp' => 'WhatsApp'])
+                    ->default('email')
+                    ->native(false),
+                Toggle::make('marketing_opt_in')
+                    ->label('Marketing opt-in'),
                 Textarea::make('notes')
                     ->columnSpanFull(),
             ]);

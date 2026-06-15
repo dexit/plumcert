@@ -87,7 +87,12 @@ class Job extends Model
         return $this->morphMany(Photo::class, 'photoable');
     }
 
-    public function inspectionItems(): HasMany
+    public function timeEntries(): HasMany
+    {
+        return $this->hasMany(TimeEntry::class, 'job_id')->orderBy('clocked_in_at');
+    }
+
+        public function inspectionItems(): HasMany
     {
         return $this->hasMany(InspectionItem::class);
     }

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['company_id', 'created_by', 'title', 'first_name', 'last_name', 'company_name', 'address', 'postcode', 'town', 'county', 'tel', 'mobile', 'email', 'vat_number', 'type', 'category', 'business_type', 'contact_name', 'notes'])]
+#[Fillable(['company_id', 'created_by', 'title', 'first_name', 'last_name', 'company_name', 'address', 'postcode', 'town', 'county', 'tel', 'mobile', 'email', 'vat_number', 'type', 'category', 'business_type', 'contact_name', 'notes', 'preferred_channel', 'marketing_opt_in'])]
 class Customer extends Model
 {
     use HasFactory, SoftDeletes;

@@ -84,7 +84,12 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('inspections', InspectionController::class);
         Route::get('jobs/{job}/inspections', [InspectionController::class, 'index']);
 
-        Route::post('sync/pull', [SyncController::class, 'pull']);
+        // Time tracking
+        Route::post('jobs/{job}/clock-in', [\App\Http\Controllers\Api\TimeEntryController::class, 'clockIn']);
+        Route::post('jobs/{job}/clock-out', [\App\Http\Controllers\Api\TimeEntryController::class, 'clockOut']);
+        Route::get('jobs/{job}/time-entries', [\App\Http\Controllers\Api\TimeEntryController::class, 'index']);
+
+                Route::post('sync/pull', [SyncController::class, 'pull']);
         Route::post('sync/push', [SyncController::class, 'push']);
     });
 });

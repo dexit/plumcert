@@ -45,4 +45,8 @@ return [
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM'),   // e.g. +14155238886
     ],
 
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+    ],
+
 ];
