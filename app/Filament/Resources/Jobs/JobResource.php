@@ -48,6 +48,7 @@ class JobResource extends Resource
     {
         return [
             RelationManagers\TasksRelationManager::class,
+            RelationManagers\TimeEntriesRelationManager::class,
         ];
     }
 
