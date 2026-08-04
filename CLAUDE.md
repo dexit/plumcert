@@ -1,74 +1,78 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
 
 ## Commands
 
 ```bash
-# Install dependencies
+# Install PHP dependencies
+composer install
+
+# Install JS dependencies (Vite/Tailwind assets)
 npm install
 
-# Start the server
-npm start           # or: node server.js
+# Start the dev server
+php artisan serve
 
-# Syntax-check the server without running it
-node --check server.js
+# Run database migrations
+php artisan migrate
 
-# Health check (server must be running)
-curl http://localhost:3000/api/health
+# Seed with demo data
+php artisan db:seed
+
+# Run the full test suite
+php artisan test
+
+# Syntax-check without running
+php -l app/**/*.php
+
+# Queue worker (for emails/reminders)
+php artisan horizon
+
+# Build frontend assets
+npm run build
 ```
-
-There is no test suite or linter configured.
 
 ## Environment Variables
 
 | Variable | Description |
 |---|---|
-| `PORT` | HTTP port (default 3000) |
-| `NODE_ENV` | Set to `production` on Render |
+| `APP_KEY` | Laravel app key (generate with `php artisan key:generate`) |
+| `DB_CONNECTION` | `sqlite` (default) or `mysql` |
+| `MAIL_MAILER` | `smtp` / `log` / `array` |
+| `SMS_DRIVER` | `twilio` or `log` (default) |
+| `TWILIO_SID` | Twilio account SID |
+| `TWILIO_TOKEN` | Twilio auth token |
+| `TWILIO_FROM` | Twilio SMS number |
+| `TWILIO_WHATSAPP_FROM` | Twilio WhatsApp sender |
+| `ANTHROPIC_API_KEY` | Claude API key — enables AI quote generation |
 | `GOOGLE_CALENDAR_ID` | Google Calendar ID for booking events |
-| `GOOGLE_CREDENTIALS_JSON` | Service account JSON (cloud); falls back to `data/google-credentials.json` locally |
-| `AI_API_KEY` | Anthropic API key; can also be set via admin UI (stored in `data/ai-config.json`) |
-| `RENDER_EXTERNAL_URL` | When set, triggers a self-ping every 14 min to prevent cold starts |
 
 ## Architecture
 
-Everything lives in a single `server.js` (~1 100 lines) — a plain Node.js `http` server with no framework. All routing is done with `if/else` on `req.url` and `req.method`.
+Laravel 13 + Filament 4 admin panel. See `README.md` for the full architecture overview.
 
-### Data layer
+### Key directories
 
-No database. All persistent state lives in JSON files under `data/` (gitignored):
+- `app/Filament/` — admin panel resources, pages, widgets, actions
+- `app/Models/` — Eloquent models
+- `app/Services/` — business logic (RecurringJobScheduler, SmsSender, AiAssistant, NominatimLookup, PdfCertificate)
+- `app/Console/Commands/` — artisan commands (reminders:generate, reminders:process, reminders:report)
+- `database/migrations/` — all schema migrations
+- `resources/views/certificates/` — dompdf Blade templates for 9 PDF types
+- `resources/views/portal/` — customer self-serve portal
+- `routes/api.php` — ~60 Sanctum-auth mobile API endpoints
+- `routes/web.php` — public site + portal routes
+- `tests/` — PHPUnit feature + unit tests (29 tests)
 
-- `data/leads.json` — booking & contact form submissions
-- `data/findings.json` — gas safety findings (photos, status, approval)
-- `data/users.json` — installer/admin accounts (scrypt-hashed passwords)
-- `data/ai-config.json` — Anthropic API key set via admin UI
-- `data/google-credentials.json` — service account for local dev
+### Admin panel
 
-Uploaded images go to `images/findings/` and `images/contact/`. Multipart parsing is hand-rolled inside `server.js` (no `multer`).
+Visit `/admin` (default: `admin@plumcert.local` / `password`).
 
-### Auth
+### Mobile API
 
-Token-based sessions stored in an in-memory `Map` (`activeSessions`). Tokens are passed as `Authorization: Bearer <token>`. Sessions expire after 8 hours. There is no refresh flow. A super-admin seed account is hardcoded near the top of `server.js` and merged with `data/users.json` at startup.
-
-### Role model
-
-Three roles checked inline throughout `server.js`:
-- **public** — booking, contact, viewing approved findings
-- **installer** — submit/delete own findings, use AI rewrite
-- **admin** — approve/feature findings, manage users, configure AI key
-
-### External integrations
-
-- **Google Calendar** (`googleapis` package) — creates calendar events on booking; credentials loaded from env or local file
-- **Claude API** (raw `https` fetch, no SDK) — called at `/api/installer/ai-rewrite`; model is `claude-haiku-4-5-20251001`; supports `rewrite` (UK Gas Safe professional tone) and `proofread` modes
-
-### Frontend
-
-Static files served directly by `server.js`. Two distinct UIs:
-- **Public site** — `index.html` + `pages/` + `js/main.js` + `css/style.css`
-- **Installer/admin portal** — `pages/installer.html` + `admin/index.html` + `js/installer.js` + `css/installer.css`
+All endpoints under `/api/v1/` require `Authorization: Bearer <token>` (Sanctum).
 
 ### Deployment
 
-Hosted on Render (see `render.yaml`). Build command: `npm install`. Start command: `node server.js`. Auto-deploys from the `master` branch.
+SQLite by default. Switch to MySQL/MariaDB via `.env`. Run `php artisan migrate --seed` then `php artisan serve`.

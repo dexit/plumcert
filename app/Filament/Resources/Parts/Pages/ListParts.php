@@ -1,0 +1,7 @@
+<?php
+namespace App\Filament\Resources\Parts\Pages;
+use App\Filament\Resources\Parts\PartResource;
+use Filament\Resources\Pages\ListRecords;
+class ListParts extends ListRecords {
+    protected static string $resource = PartResource::class;
+}
